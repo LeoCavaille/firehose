@@ -21,7 +21,7 @@
 import sys
 import xml.etree.ElementTree as ET
 
-from firehose.model import Message, Function, Point, \
+from firehose.model import Message, Declaration, Context, Point, \
     File, Location, Generator, Metadata, Analysis, Issue, Notes, Failure, \
     CustomFields
 
@@ -59,15 +59,13 @@ def parse_file(fileobj, sut=None, file_=None, stats=None):
 
         location_nodes = list(node_error.findall('location'))
         for node_location in location_nodes:
+            # FIXME: doesn't tell us function name
+            # TODO: can we patch this upstream?
+            context=None
             location=Location(file=File(node_location.get('file'), None),
-
-                              # FIXME: doesn't tell us function name
-                              # TODO: can we patch this upstream?
-                              function=None,
-
                               # doesn't emit column
                               point=Point(int(node_location.get('line')), 0)) # FIXME: bogus column
-            issue = Issue(None, testid, location, message, notes, None,
+            issue = Issue(None, testid, location, context, message, notes,
                           severity=node_error.get('severity'))
             analysis.results.append(issue)
 
@@ -77,6 +75,7 @@ def parse_file(fileobj, sut=None, file_=None, stats=None):
                 customfields['verbose'] = str_verbose
             failure = Failure(failureid=testid,
                               location=None,
+                              context=None,
                               message=message,
                               customfields=customfields)
             analysis.results.append(failure)

@@ -25,7 +25,7 @@ import unittest
 from six import u, StringIO, BytesIO
 
 from firehose.model import Analysis, Issue, Metadata, Generator, SourceRpm, \
-    Location, File, Function, Point, Message, Notes, Trace, State, Stats, \
+    Location, File, Context, Declaration, Point, Message, Notes, Trace, State, Stats, \
     Failure, Range, DebianSource, DebianBinary, CustomFields, Info
 
 class AnalysisTests(unittest.TestCase):
@@ -33,91 +33,130 @@ class AnalysisTests(unittest.TestCase):
         """
         Construct a minimal Analysis instance
         """
-        a = Analysis(metadata=Metadata(generator=Generator(name='cpychecker'),
-                                       sut=None,
-                                       file_=None,
-                                       stats=None),
-                     results=[Issue(cwe=None,
-                                    testid=None,
-                                    location=Location(file=File('foo.c', None),
-                                                      function=None,
-                                                      point=Point(10, 15)),
-                                    message=Message(text='something bad involving pointers'),
-                                    notes=None,
-                                    trace=None)])
+        a = Analysis(
+            metadata=Metadata(
+                generator=Generator(name='cpychecker'),
+                sut=None,
+                file_=None,
+                stats=None),
+            results=[Issue(
+                cwe=None,
+                testid=None,
+                location=Location( 
+                    file=File('foo.c', None),
+                    point=Point(10, 15)),
+                context=None,
+                message=Message(text='something bad involving pointers'),
+                notes=None)])
         return a, a.results[0]
 
     def make_complex_analysis(self):
         """
         Construct a Analysis instance that uses all features
         """
-        a = Analysis(metadata=Metadata(generator=Generator(name='cpychecker',
-                                                           version='0.11'),
-                                       sut=SourceRpm(name='python-ethtool',
-                                                     version='0.7',
-                                                     release='4.fc19',
-                                                     buildarch='x86_64'),
-                                       file_=File(givenpath='foo.c',
-                                                  abspath='/home/david/coding/foo.c'),
-                                       stats=Stats(wallclocktime=0.4)),
-                     results=[Issue(cwe=681,
-                                    testid='refcount-too-high',
-                                    location=Location(file=File(givenpath='foo.c',
-                                                                abspath='/home/david/coding/foo.c'),
-                                                      function=Function('bar'),
-                                                      point=Point(10, 15)),
-                                    message=Message(text='something bad involving pointers'),
-                                    notes=Notes('here is some explanatory text'),
-                                    trace=Trace([State(location=Location(file=File('foo.c', None),
-                                                                         function=Function('bar'),
-                                                                         point=Point(7, 12)),
-                                                       notes=Notes('first we do this')),
-                                                 State(location=Location(file=File('foo.c', None),
-                                                                         function=Function('bar'),
-                                                                         point=Point(8, 10)),
-                                                       notes=Notes('then we do that')),
-                                                 State(location=Location(file=File('foo.c', None),
-                                                                         function=Function('bar'),
-                                                                         range_=Range(Point(10, 15),
-                                                                                      Point(10, 25))),
-                                                       notes=Notes('then it crashes here'))
-                                                 ]),
-                                    severity='really bad',
-                                    customfields=CustomFields(foo='bar')),
-                              ],
-                     customfields=CustomFields(gccinvocation='gcc -I/usr/include/python2.7 -c foo.c'),
-                     )
+        a = Analysis(
+            metadata=Metadata(
+                generator=Generator(name='cpychecker', version='0.11'),
+                sut=SourceRpm(
+                    name='python-ethtool',
+                    version='0.7',
+                    release='4.fc19',
+                    buildarch='x86_64'),
+                file_=File(
+                    givenpath='foo.c',
+                    abspath='/home/david/coding/foo.c'),
+                stats=Stats(
+                    wallclocktime=0.4)),
+             results=[
+                 Issue(
+                     cwe=681,
+                     testid='refcount-too-high',
+                     location=Location(
+                         file=File(
+                             givenpath='foo.c',
+                             abspath='/home/david/coding/foo.c'),
+                         point=Point(10, 15)),
+                     context=Context(
+                         declaration=Declaration(name='bar', kind='function'),                        
+                         trace=Trace([
+                             State(
+                                 location=Location(
+                                     file=File('foo.c', None),
+                                     point=Point(7, 12)),
+                                 context=Context(
+                                     declaration=Declaration(
+                                         name='bar',
+                                         kind='function')),
+                                 notes=Notes('first we do this')),
+                             State(
+                                 location=Location(
+                                     file=File('foo.c', None),
+                                     point=Point(8, 10)),
+                                 context=Context(
+                                     declaration=Declaration(
+                                         name='foobar', 
+                                         kind='member function')),
+                                 notes=Notes('then we do that')),
+                             State(
+                                 location=Location(
+                                     file=File('foo.c', None),
+                                     range_=Range(
+                                         Point(10, 15),
+                                         Point(10, 25))),
+                                 context=None,
+                                 notes=Notes('then it crashes here'))])),
+                     message=Message(text='something bad involving pointers'),
+                     notes=Notes('here is some explanatory text'),
+                     severity='really bad',
+                     customfields=CustomFields(foo='bar'))],
+             customfields=CustomFields(
+                gccinvocation='gcc -I/usr/include/python2.7 -c foo.c'))
         return a, a.results[0]
 
     def make_failed_analysis(self):
-        a = Analysis(metadata=Metadata(generator=Generator(name='yet-another-checker'),
-                                       sut=None,
-                                       file_=None,
-                                       stats=None),
-                     results=[Failure(failureid='out-of-memory',
-                                      location=Location(file=File('foo.c', None),
-                                                        function=Function('something_complicated'),
-                                                        point=Point(10, 15)),
-                                      message=Message('out of memory'),
-                                      customfields=CustomFields(stdout='sample stdout',
-                                                                stderr='sample stderr',
-                                                                returncode=-9)) # (killed)
-                              ])
+        a = Analysis(
+            metadata=Metadata(
+                generator=Generator(name='yet-another-checker'),
+                sut=None,
+                file_=None,
+                stats=None),
+                results=[
+                    Failure(
+                        failureid='out-of-memory',
+                        location=Location(
+                            file=File('foo.c', None),
+                            point=Point(10, 15)),
+                         context=Context(
+                             declaration=Declaration(
+                                 name='so_complicated', 
+                                 kind='function')),
+                         message=Message('out of memory'),
+                         customfields=CustomFields(
+                             stdout='sample stdout',
+                             stderr='sample stderr',
+                             returncode=-9))]) # SIGKILLed
         return a, a.results[0]
 
     def make_info(self):
-        a = Analysis(metadata=Metadata(generator=Generator(name='an-invented-checker'),
-                                       sut=None,
-                                       file_=None,
-                                       stats=None),
-                     results=[Info(infoid='gimple-stats',
-                                   location=Location(file=File('bar.c', None),
-                                                     function=Function('sample_function'),
-                                                     point=Point(10, 15)),
-                                   message=Message('sample message'),
-                                   customfields=CustomFields(num_stmts=57,
-                                                             num_basic_blocks=10))
-                              ])
+        a = Analysis(
+            metadata=Metadata(
+                generator=Generator(name='ohcount'),
+                sut=DebianSource(
+                    name='libcaca',
+                    version='0.99',
+                    release='beta18'),
+                file_=None,
+                stats=None),
+            results=[
+                Info(
+                    infoid='ohcount line-count',
+                    location=None,
+                    context=None,
+                    message=Message('Examining 304 files'),
+                    customfields=CustomFields(
+                        languages='autoconf,c,make,python,xml,csharp,cpp,java,'
+                        +'objective_c,automake,ruby,css,assembler,html,total',
+                        files='3,114,14,18,8,9,9,14,1,14,5,1,1,2,213'))])
         return a, a.results[0]
 
     def test_creating_simple_analysis(self):
@@ -129,64 +168,163 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(a.metadata.stats, None)
         self.assertEqual(w.cwe, None)
         self.assertEqual(w.testid, None)
+        self.assertEqual(w.context, None)
         self.assertEqual(w.location.file.givenpath, 'foo.c')
         self.assertEqual(w.location.file.abspath, None)
-        self.assertEqual(w.location.function, None)
         self.assertEqual(w.location.line, 10)
         self.assertEqual(w.location.column, 15)
         self.assertEqual(w.message.text, 'something bad involving pointers')
         self.assertEqual(w.notes, None)
-        self.assertEqual(w.trace, None)
 
     def test_creating_complex_analysis(self):
-        a, w = self.make_complex_analysis()
+        a, issue = self.make_complex_analysis()
+        # Analyze metadata
+        self.assertIsInstance(a.metadata, Metadata)
+        ## Analyze generator
+        self.assertIsInstance(a.metadata.generator, Generator)
         self.assertEqual(a.metadata.generator.name, 'cpychecker')
         self.assertEqual(a.metadata.generator.version, '0.11')
+        ## Analyze sut
         self.assertIsInstance(a.metadata.sut, SourceRpm)
         self.assertEqual(a.metadata.sut.name, 'python-ethtool')
         self.assertEqual(a.metadata.sut.version, '0.7')
         self.assertEqual(a.metadata.sut.release, '4.fc19')
         self.assertEqual(a.metadata.sut.buildarch, 'x86_64')
+        ## Analyze file
+        self.assertIsInstance(a.metadata.file_, File)
         self.assertEqual(a.metadata.file_.givenpath, 'foo.c')
         self.assertEqual(a.metadata.file_.abspath, '/home/david/coding/foo.c')
+        ## Analyze stats
         self.assertEqual(a.metadata.stats.wallclocktime, 0.4)
-        self.assertEqual(w.cwe, 681)
-        self.assertEqual(w.testid, 'refcount-too-high')
-        self.assertEqual(w.location.file.givenpath, 'foo.c')
-        self.assertEqual(w.location.file.abspath, '/home/david/coding/foo.c')
-        self.assertEqual(w.location.function.name, 'bar')
-        self.assertEqual(w.location.line, 10)
-        self.assertEqual(w.location.column, 15)
-        self.assertEqual(w.message.text, 'something bad involving pointers')
-        self.assertEqual(w.notes.text, 'here is some explanatory text')
-        self.assertEqual(w.severity, 'really bad')
-
-        self.assertIsInstance(w.trace, Trace)
-        self.assertEqual(len(w.trace.states), 3)
-        s0 = w.trace.states[0]
+        
+        # Analyze results, issue=a.results[0]
+        self.assertEqual(len(a.results), 1)        
+        ## Analyze cissuee
+        self.assertEqual(issue.cwe, 681)
+        ## Analyze testid
+        self.assertEqual(issue.testid, 'refcount-too-high')
+        ## Analyze context
+        self.assertIsInstance(issue.context, Context)
+        ### Analyze declaration
+        self.assertIsInstance(issue.context.declaration, Declaration)
+        self.assertEqual(issue.context.declaration.kind, 'function')
+        self.assertEqual(issue.context.declaration.name, 'bar')
+        ### Analyze trace
+        self.assertIsInstance(issue.context.trace, Trace)
+        #### Analyze trace states
+        self.assertEqual(len(issue.context.trace.states), 3)
+        ##### Analyze trace state 0
+        s0 = issue.context.trace.states[0]
         self.assertIsInstance(s0, State)
+        ###### Analyze trace state 0 context
+        self.assertIsInstance(s0.context, Context)
+        ###### Analyze trace state 0 context declaration
+        self.assertIsInstance(s0.context.declaration, Declaration)
+        self.assertEqual(s0.context.declaration.kind, 'function')
+        self.assertEqual(s0.context.declaration.name, 'bar')
+        ###### Analyze trace state 0 location
+        self.assertIsInstance(s0.location.file, File)
         self.assertEqual(s0.location.file.givenpath, 'foo.c')
-        self.assertEqual(s0.location.function.name, 'bar')
         self.assertEqual(s0.location.line, 7)
         self.assertEqual(s0.location.column, 12)
+        ###### Analyze trace state 0 notes
+        self.assertIsInstance(s0.notes, Notes)
         self.assertEqual(s0.notes.text, 'first we do this')
-
-        # Verify the Range type within the final state in the trace:
-        s2 = w.trace.states[2]
+        ##### Analyze trace state 1
+        s1 = issue.context.trace.states[1]
+        self.assertIsInstance(s1, State)
+        ###### Analyze trace state 1 context
+        self.assertIsInstance(s1.context, Context)
+        ###### Analyze trace state 1 context declaration
+        self.assertIsInstance(s1.context.declaration, Declaration)
+        self.assertEqual(s1.context.declaration.kind, 'member function')
+        self.assertEqual(s1.context.declaration.name, 'foobar')
+        ###### Analyze trace state 1 location
+        self.assertIsInstance(s1.location, Location)
+        ####### Analyze trace state 1 location file
+        self.assertIsInstance(s0.location.file, File)
+        self.assertEqual(s1.location.file.givenpath, 'foo.c')
+        ####### Analyze trace state 1 location point
+        self.assertIsInstance(s0.location.point, Point)
+        self.assertEqual(s1.location.line, 8)
+        self.assertEqual(s1.location.column, 10)
+        ##### Analyze trace state 2
+        s2 = issue.context.trace.states[2]
         self.assertIsInstance(s2, State)
+        ###### Analyze trace state 2 location
+        self.assertIsInstance(s2.location, Location)
+        ####### Analyze trace state 2 location file
+        self.assertIsInstance(s2.location.file, File)
+        self.assertEqual(s1.location.file.givenpath, 'foo.c')
+        ####### Analyze trace state 2 location range
         self.assertEqual(s2.location.line, 10)
         self.assertEqual(s2.location.column, 15)
+        self.assertIsInstance(s2.location.range_, Range)
+        self.assertEqual(s2.location.line, 10)
+        self.assertEqual(s2.location.column, 15)
+        self.assertEqual(s2.location.range_.end.line, 10)
+        self.assertEqual(s2.location.range_.end.column, 25)
+        ###### Analyze trace state 2 notes
+        self.assertIsInstance(s2.notes, Notes)
+        self.assertEqual(s2.notes.text, 'then it crashes here')
+
+        ## Analyze location
+        self.assertIsInstance(issue.location, Location)
+        ### Analyze location file
+        self.assertIsInstance(issue.location.file, File)
+        self.assertEqual(issue.location.file.givenpath, 'foo.c')
+        self.assertEqual(issue.location.file.abspath, '/home/david/coding/foo.c')
+        ### Analyze location point
+        self.assertIsInstance(issue.location.point, Point)
+        self.assertEqual(issue.location.line, 10)
+        self.assertEqual(issue.location.column, 15)
+
+        ## Analyze message
+        self.assertIsInstance(issue.message, Message)
+        self.assertEqual(issue.message.text, 'something bad involving pointers')
+
+        ## Analyze notes
+        self.assertIsInstance(issue.notes, Notes)
+        self.assertEqual(issue.notes.text, 'here is some explanatory text')
+
+        ## Analyze severity
+        self.assertEqual(issue.severity, 'really bad')
+
+        ## Analyze customfields
+        self.assertIsInstance(issue.customfields, CustomFields)
+        self.assertEqual(issue.customfields['foo'], 'bar')
+
+        # Analyze customfields
+        self.assertIsInstance(a.customfields, CustomFields)
+        self.assertEqual(
+            a.customfields['gccinvocation'], 
+            'gcc -I/usr/include/python2.7 -c foo.c')
+
 
     def test_making_failed_analysis(self):
         a, f = self.make_failed_analysis()
-
+    
+        # Here we only analyze the failure element    
+        # Analyze failure
         self.assertIsInstance(f, Failure)
+        ## Analyze failure id
         self.assertEqual(f.failureid, 'out-of-memory')
+        ## Analyze failure location
+        self.assertIsInstance(f.location, Location)
         self.assertEqual(f.location.file.givenpath, 'foo.c')
-        self.assertEqual(f.location.function.name, 'something_complicated')
         self.assertEqual(f.location.line, 10)
         self.assertEqual(f.location.column, 15)
+        ## Analyze failure context
+        self.assertIsInstance(f.context, Context)
+        ### Analyze failure context declaration
+        self.assertIsInstance(f.context.declaration, Declaration)
+        self.assertEqual(f.context.declaration.kind, 'function')
+        self.assertEqual(f.context.declaration.name, 'so_complicated')
+        ## Analyze failure message
+        self.assertIsInstance(f.message, Message)
         self.assertEqual(f.message.text, 'out of memory')
+        ## Analyze failure customfields dictionnary
+        self.assertIsInstance(f.customfields, CustomFields)
         self.assertEqual(f.customfields['stdout'], 'sample stdout')
         self.assertEqual(f.customfields['stderr'], 'sample stderr')
         self.assertEqual(f.customfields['returncode'], -9)
@@ -194,16 +332,24 @@ class AnalysisTests(unittest.TestCase):
     def test_making_info(self):
         a, info = self.make_info()
 
-        self.assertIsInstance(info, Info)
-        self.assertEqual(info.infoid, 'gimple-stats')
-        self.assertEqual(info.location.file.givenpath, 'bar.c')
-        self.assertEqual(info.location.function.name, 'sample_function')
-        self.assertEqual(info.location.line, 10)
-        self.assertEqual(info.location.column, 15)
-        self.assertEqual(info.message.text, 'sample message')
-        self.assertEqual(info.customfields['num_stmts'], 57)
-        self.assertEqual(info.customfields['num_basic_blocks'], 10)
+        # Analyze metadata DebianSource
+        self.assertIsInstance(a.metadata.sut, DebianSource)
+        self.assertEqual(a.metadata.sut.name, 'libcaca')
+        self.assertEqual(a.metadata.sut.version, '0.99')
+        self.assertEqual(a.metadata.sut.release, 'beta18')
 
+        # Analyze info
+        self.assertIsInstance(info, Info)
+        self.assertEqual(info.infoid, 'ohcount line-count')
+        self.assertIsInstance(info.message, Message)
+        self.assertEqual(info.message.text, 'Examining 304 files')
+        self.assertIsInstance(info.customfields, CustomFields)
+        self.assertEqual(info.customfields['languages'],
+            'autoconf,c,make,python,xml,csharp,cpp,java,'
+            +'objective_c,automake,ruby,css,assembler,html,total')
+        self.assertEqual(info.customfields['files'],
+            '3,114,14,18,8,9,9,14,1,14,5,1,1,2,213')
+        
     def test_from_xml(self):
         num_analyses = 0
         for filename in sorted(glob.glob('examples/example-*.xml')):
@@ -235,23 +381,27 @@ class AnalysisTests(unittest.TestCase):
             self.assertEqual(w.location.file.hash_.alg, 'sha1')
             self.assertEqual(w.location.file.hash_.hexdigest,
                              '6ba29daa94d64b48071e299a79f2a00dcd99eeb1')
-            self.assertEqual(w.location.function.name, 'make_a_list_of_random_ints_badly')
             self.assertEqual(w.location.line, 40)
             self.assertEqual(w.location.column, 4)
+            self.assertIsInstance(w.context, Context)
+            self.assertIsInstance(w.context.declaration, Declaration)
+            self.assertEqual(w.context.declaration.kind, 'function')
+            self.assertEqual(w.context.declaration.name, 'make_a_list_of_random_ints_badly')
             self.assertEqual(w.message.text, "ob_refcnt of '*item' is 1 too high")
             self.assertMultiLineEqual(w.notes.text,
                 ("was expecting final item->ob_refcnt to be N + 1 (for some unknown N)\n"
                  "due to object being referenced by: PyListObject.ob_item[0]\n"
                  "but final item->ob_refcnt is N + 2"))
 
-            self.assertIsInstance(w.trace, Trace)
-            self.assertEqual(len(w.trace.states), 3)
-            s0 = w.trace.states[0]
+            self.assertIsInstance(w.context.trace, Trace)
+            self.assertEqual(len(w.context.trace.states), 3)
+            s0 = w.context.trace.states[0]
             self.assertIsInstance(s0, State)
             self.assertEqual(s0.location.file.givenpath, 'examples/python-src-example.c')
-            self.assertEqual(s0.location.function.name, 'make_a_list_of_random_ints_badly')
             self.assertEqual(s0.location.line, 36)
             self.assertEqual(s0.location.column, 14)
+            self.assertEqual(s0.context.declaration.kind, 'function')
+            self.assertEqual(s0.context.declaration.name, 'make_a_list_of_random_ints_badly')
             self.assertEqual(s0.notes.text,
                 'PyLongObject allocated at:         item = PyLong_FromLong(random());')
 
@@ -289,10 +439,10 @@ class AnalysisTests(unittest.TestCase):
             self.assertIsInstance(w, Failure)
             self.assertEqual(w.failureid, 'python-exception')
             self.assertEqual(w.location.file.givenpath, 'wspy_register.c')
-            self.assertEqual(w.location.function.name,
-                             'register_all_py_protocols_func')
             self.assertEqual(w.location.line, 159)
             self.assertEqual(w.location.column, 42)
+            self.assertEqual(w.context.declaration.name,
+                             'register_all_py_protocols_func')
             self.assert_(w.customfields['traceback'].startswith('wspy_register.c: In function \'register_all_py_protocols_func\':\n'))
 
     def test_example_5(self):
@@ -350,7 +500,7 @@ class AnalysisTests(unittest.TestCase):
             self.assertIn(u('\u6587\u5b57\u5316\u3051'),
                           w.notes.text)
 
-            self.assertEqual(w.location.function.name, u('oo\u025f'))
+            self.assertEqual(w.context.declaration.name, u('oo\u025f'))
 
     def test_to_xml(self):
         def validate(xmlbytes):
@@ -420,8 +570,8 @@ class AnalysisTests(unittest.TestCase):
     def test_json_roundtrip(self):
         def roundtrip_through_json(a):
             jsondict = a.to_json()
-            from pprint import pprint
-            pprint(jsondict)
+            #from pprint import pprint
+            #pprint(jsondict)
             return Analysis.from_json(jsondict)
 
         a1, w = self.make_simple_analysis()
@@ -447,7 +597,6 @@ class AnalysisTests(unittest.TestCase):
 
         a7, info = self.make_info()
         a8 = roundtrip_through_json(a7)
-
         self.assertEqual(a7.metadata, a8.metadata)
         self.assertEqual(a7.results, a8.results)
         self.assertEqual(a7, a8)

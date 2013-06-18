@@ -49,6 +49,15 @@
           A                            │
           └────────────────────────────┘
       </notes>
+      <context>
+        <!--
+           (Python 3 supports full unicode for identifiers; can GCC do the
+           same for C?).  For now, let's turn "foo" upside-down
+           (the "f" is actually a
+             "LATIN SMALL LETTER DOTLESS J WITH STROKE (U+025F)")
+        -->
+        <declaration kind="function" name="ooɟ"/>
+      </context>
       <location>
 
         <!--
@@ -58,14 +67,6 @@
           filesystems that the code might be checked out on.
           -->
         <file given-path="examples/non-ascii-example.c"/>
-
-        <!--
-           (Python 3 supports full unicode for identifiers; can GCC do the
-           same for C?).  For now, let's turn "foo" upside-down
-           (the "f" is actually a
-             "LATIN SMALL LETTER DOTLESS J WITH STROKE (U+025F)")
-        -->
-        <function name="ooɟ"/>
 
         <point line="50" column="9"/>
       </location>

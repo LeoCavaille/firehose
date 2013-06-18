@@ -38,12 +38,14 @@
     "long int *" (pointing to 64 bits)
   but was expecting
     "int *" (pointing to 32 bits)
-  for format code "i"</notes>
+    for format code "i"</notes>
+      <context>
+        <declaration kind="function" name="make_a_list_of_random_ints_badly"/>
+      </context>
       <location>
         <file given-path="examples/python-src-example.c">
           <hash alg="sha1" hexdigest="6ba29daa94d64b48071e299a79f2a00dcd99eeb1"/>
         </file>
-        <function name="make_a_list_of_random_ints_badly"/>
         <point line="29" column="26"/>
       </location>
       <custom-fields>

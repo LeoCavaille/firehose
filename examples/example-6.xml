@@ -35,9 +35,11 @@
           http://git.fedorahosted.org/cgit/gcc-python-plugin.git/commit/?h=firehose&id=1fbb678bb121099a8161031aae9e39c75e3faea7 )
     -->
     <failure failure-id="too-complicated">
+      <context>
+        <declaration kind="function" name="test_adding_module_objects"/>
+      </context>
       <location>
         <file given-path="tests/cpychecker/refcounts/combinatorial-explosion/input.c"/>
-        <function name="test_adding_module_objects"/>
         <point column="1" line="31"/>
       </location>
       <message>this function is too complicated for the reference-count checker to fully analyze: not all paths were analyzed</message>

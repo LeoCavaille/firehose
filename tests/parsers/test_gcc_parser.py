@@ -21,7 +21,7 @@ import mock
 
 from firehose.parsers import gcc # import parse_warning, parse_file
 from firehose.model import Analysis, Issue, Location, File, Point, \
-    Function, Message, Sut, Metadata, Generator
+    Declaration, Context, Message, Sut, Metadata, Generator
 
 FUNC_NAME = 'I am a func name'
 
@@ -68,7 +68,8 @@ class TestParseWarning(unittest.TestCase):
         self.assertIsInstance(issue.location, Location)
         self.assertIsInstance(issue.location.file, File)
         self.assertIsInstance(issue.location.point, Point)
-        self.assertIsInstance(issue.location.function, Function)
+        self.assertIsInstance(issue.context, Context)
+        self.assertIsInstance(issue.context.declaration, Declaration)
         self.assertIsInstance(issue.message, Message)
         self.assertEqual(issue.message.text,
             "ignoring return value of 'fread', declared with attribute warn_unused_result")
@@ -76,7 +77,8 @@ class TestParseWarning(unittest.TestCase):
         self.assertEqual(issue.location.file.abspath, None)
         self.assertEqual(issue.location.point.line, 299)
         self.assertEqual(issue.location.point.column, 9)
-        self.assertEqual(issue.location.function.name, FUNC_NAME)
+        self.assertEqual(issue.context.declaration.name, FUNC_NAME)
+        self.assertEqual(issue.context.declaration.kind, 'function')
 
     def test_values_cpp(self):
         line = "num_get_float.cpp:535:29: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]"
@@ -85,7 +87,8 @@ class TestParseWarning(unittest.TestCase):
         self.assertIsInstance(issue.location, Location)
         self.assertIsInstance(issue.location.file, File)
         self.assertIsInstance(issue.location.point, Point)
-        self.assertIsInstance(issue.location.function, Function)
+        self.assertIsInstance(issue.context, Context)
+        self.assertIsInstance(issue.context.declaration, Declaration)
         self.assertIsInstance(issue.message, Message)
         self.assertEqual(issue.message.text,
             "dereferencing type-punned pointer will break strict-aliasing rules")
@@ -93,7 +96,8 @@ class TestParseWarning(unittest.TestCase):
         self.assertEqual(issue.location.file.abspath, None)
         self.assertEqual(issue.location.point.line, 535)
         self.assertEqual(issue.location.point.column, 29)
-        self.assertEqual(issue.location.function.name, FUNC_NAME)
+        self.assertEqual(issue.context.declaration.name, FUNC_NAME)
+        self.assertEqual(issue.context.declaration.kind, 'function')
 
     def test_full_path(self):
         line = "/builddir/build/BUILD/libreoffice-3.5.7.2/icc/unxlngi6.pro/misc/build/SampleICC-1.3.2/IccProfLib/IccMpeACS.cpp:203:40: warning: comparison between signed and unsigned integer expressions [-Wsign-compare]"

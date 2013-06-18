@@ -20,7 +20,7 @@
 import re
 import sys
 
-from firehose.model import Message, Function, Point, \
+from firehose.model import Message, Declaration, Context, Point, \
     File, Location, Metadata, Generator, Issue, Analysis
 
 # Parser for warnings emitted by GCC
@@ -108,7 +108,6 @@ def parse_warning(line, func_name):
     match = GCC_PATTERN.match(line)
     if match:
         message = Message(match.group('message'))
-        func = Function(func_name)
         try:
             column = int(match.group('column'))
         except ValueError:
@@ -126,9 +125,10 @@ def parse_warning(line, func_name):
 
         point = Point(int(match.group('line')), column)
         path = File(match.group('path'), None)
-        location = Location(path, func, point)
+        location = Location(path, point)
+        context = Context(declaration=Declaration(name=func_name, kind='function'))
 
-        return Issue(None, switch, location, message, None, None)
+        return Issue(None, switch, location, context, message, None, None)
 
 
 if __name__ == '__main__':
@@ -137,5 +137,5 @@ if __name__ == '__main__':
     else:
         with open(sys.argv[1]) as data_file:
             analysis = parse_file(data_file)
-            sys.stdout.write(str(analysis.to_xml()))
+            sys.stdout.write(str(analysis.to_xml_bytes()))
             sys.stdout.write('\n')

@@ -52,16 +52,16 @@ class TestParsePlist(unittest.TestCase):
         self.assertEqual(w0.location.file.givenpath,
                          'python-ethtool/ethtool.c')
         self.assertEqual(w0.location.file.abspath, None)
-        self.assertEqual(w0.location.function, None)
         self.assertEqual(w0.location.line, 130)
         self.assertEqual(w0.location.column, 2)
-        self.assertNotEqual(w0.trace, None)
-        self.assertEqual(len(w0.trace.states), 1)
-        s0 = w0.trace.states[0]
+        self.assertEqual(w0.context.declaration, None)
+
+        self.assertNotEqual(w0.context.trace, None)
+        self.assertEqual(len(w0.context.trace.states), 1)
+        s0 = w0.context.trace.states[0]
         self.assertEqual(s0.location.file.givenpath,
                          'python-ethtool/ethtool.c')
         self.assertEqual(s0.location.file.abspath, None)
-        self.assertEqual(s0.location.function.name, '')
         self.assertEqual(s0.location.line, 130)
         self.assertEqual(s0.location.column, 2)
         self.assertEqual(s0.notes.text,
@@ -83,7 +83,6 @@ class TestParsePlist(unittest.TestCase):
         self.assertEqual(w0.location.column, 3)
 
         w1 = a.results[1]
-        print(w1)
         self.assertEqual(w1.message.text,
                          "Value stored to 'pol_opt' is never read")
         self.assertEqual(w1.location.file.givenpath, 'search.c')
@@ -91,13 +90,12 @@ class TestParsePlist(unittest.TestCase):
         self.assertEqual(w1.location.column, 2)
 
         w2 = a.results[2]
-        print(w2)
         self.assertEqual(w2.message.text,
                          "Access to field 'ob_refcnt' results in a dereference of a null pointer (loaded from variable 'dict')")
         self.assertEqual(w2.location.file.givenpath, 'search.c')
         self.assertEqual(w2.location.line, 215)
         self.assertEqual(w2.location.column, 2)
-        trace2 = w2.trace
+        trace2 = w2.context.trace
         self.assertIsInstance(trace2, Trace)
 
         self.assertEqual(len(trace2.states), 13)

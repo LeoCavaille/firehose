@@ -27,7 +27,7 @@ import plistlib
 from pprint import pprint
 import sys
 
-from firehose.model import Message, Function, Point, Range, \
+from firehose.model import Message, Context, Declaration, Point, Range, \
     File, Location, Generator, Metadata, Analysis, Issue, Sut, Trace, \
     State, Notes
 
@@ -75,21 +75,22 @@ def parse_plist(pathOrFile, analyzerversion=None, sut=None, file_=None, stats=No
         loc = diagnostic['location']
         location = Location(file=File(givenpath=files[loc.file],
                                       abspath=None),
-
-                            # FIXME: doesn't tell us function name
-                            # TODO: can we patch this upstream?
-                            function=None,
-
                             point=Point(int(loc.line),
                                         int(loc.col)))
 
         notes = None
 
-        trace = make_trace(files, diagnostic['path'])
+        # TODO: support something like this
+        # declaration=Declaration(
+        #     name=diagnostic['issue_context'],
+        #     kind=diagnostic['issue_context_kind']),
+        context = Context(
+                    declaration=None,
+                    trace=make_trace(files, diagnostic['path']))
 
         issue = Issue(cwe,
                       None, # FIXME: can we get at the test id?
-                      location, message, notes, trace)
+                      location, context, message, notes)
 
         analysis.results.append(issue)
 
@@ -106,11 +107,6 @@ def make_location_from_point(files, loc):
     #   e.g. {'col': 2, 'file': 0, 'line': 130}
     location = Location(file=File(givenpath=files[loc.file],
                                   abspath=None),
-
-                        # FIXME: doesn't tell us function name
-                        # TODO: can we patch this upstream?
-                        function=Function(''),
-
                         point=make_point_from_plist_point(loc))
     return location
 
@@ -134,11 +130,6 @@ def make_location_from_range(files, range_):
 
     location = Location(file=File(givenpath=files[start['file']],
                                   abspath=None),
-
-                        # FIXME: doesn't tell us function name
-                        # TODO: can we patch this upstream?
-                        function=Function(''),
-
                         point=point,
                         range_=range_)
 
@@ -173,7 +164,7 @@ def make_trace(files, path):
             location = make_location_from_point(files, loc)
 
             notes = Notes(node['message'])
-            trace.add_state(State(location, notes))
+            trace.add_state(State(location, None, notes))
 
             lastlocation = location
 
@@ -193,8 +184,8 @@ def make_trace(files, path):
                 endloc = make_location_from_range(files, edge_end)
 
                 if startloc != lastlocation:
-                    trace.add_state(State(startloc, None))
-                trace.add_state(State(endloc, None))
+                    trace.add_state(State(startloc, None, None))
+                trace.add_state(State(endloc, None, None))
                 lastlocation = endloc
         else:
             raise ValueError('unknown kind: %r' % kind)

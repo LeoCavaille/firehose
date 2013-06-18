@@ -234,9 +234,9 @@ class Issue(Result):
     attrs = [Attribute('cwe', int, nullable=True),
              Attribute('testid', _string_type, nullable=True),
              Attribute('location', 'Location'),
+             Attribute('context', 'Context', nullable=True),
              Attribute('message', 'Message'),
              Attribute('notes', 'Notes', nullable=True),
-             Attribute('trace', 'Trace', nullable=True),
              Attribute('severity', _string_type, nullable=True),
              Attribute('customfields', 'CustomFields', nullable=True)]
     __slots__ = make_slots(attrs)
@@ -245,73 +245,73 @@ class Issue(Result):
                  cwe,
                  testid,
                  location,
+                 context,
                  message,
                  notes,
-                 trace,
                  severity=None,
                  customfields=None):
-        if cwe is not None:
+        if cwe:
             assert isinstance(cwe, int)
-        if testid is not None:
+        if testid:
             assert isinstance(testid, _string_type)
         assert isinstance(location, Location)
+        if context is not None:
+            assert isinstance(context, Context)
         assert isinstance(message, Message)
-        if notes:
+        if notes is not None:
             assert isinstance(notes, Notes)
-        if trace:
-            assert isinstance(trace, Trace)
-        if severity is not None:
+        if severity:
             assert isinstance(severity, _string_type)
         if customfields is not None:
             assert isinstance(customfields, CustomFields)
         self.cwe = cwe
         self.testid = testid
         self.location = location
+        self.context = context
         self.message = message
         self.notes = notes
-        self.trace = trace
         self.severity = severity
         self.customfields = customfields
 
     @classmethod
     def from_xml(cls, node):
         cwe = node.get('cwe')
-        if cwe is not None:
+        if cwe:
             cwe = int(cwe)
         testid = node.get('test-id')
         location = Location.from_xml(node.find('location'))
+        context_node = node.find('context')
+        if context_node is not None:
+            context = Context.from_xml(context_node)
+        else:
+            context = None
         message = Message.from_xml(node.find('message'))
         notes_node = node.find('notes')
         if notes_node is not None:
             notes = Notes.from_xml(notes_node)
         else:
             notes = None
-        trace_node = node.find('trace')
-        if trace_node is not None:
-            trace = Trace.from_xml(trace_node)
-        else:
-            trace = None
         severity = node.get('severity')
         customfields_node = node.find('custom-fields')
         if customfields_node is not None:
             customfields = CustomFields.from_xml(customfields_node)
         else:
             customfields = None
-        return Issue(cwe, testid, location, message, notes, trace, severity, customfields)
+        return Issue(cwe, testid, location, context, message, notes, severity, customfields)
 
     def to_xml(self):
         node = ET.Element('issue')
         if self.cwe is not None:
             node.set('cwe', str(self.cwe))
-        if self.testid is not None:
+        if self.testid:
             node.set('test-id', str(self.testid))
         node.append(self.message.to_xml())
-        if self.notes:
+        if self.notes is not None:
             node.append(self.notes.to_xml())
         node.append(self.location.to_xml())
-        if self.trace:
-            node.append(self.trace.to_xml())
-        if self.severity is not None:
+        if self.context is not None:
+            node.append(self.context.to_xml())
+        if self.severity:
             node.set('severity', str(self.severity))
         if self.customfields is not None:
             node.append(self.customfields.to_xml())
@@ -333,11 +333,13 @@ class Issue(Result):
             out.write('%s:%i:%i: %s: %s\n'
                       % (filename, line, column,
                          kind, msg))
-        if self.location.function is not None:
-            writeln("%s: In function '%s':"
-                    % (self.location.file.givenpath,
-                       self.location.function.name))
-        if self.cwe:
+        if self.context is not None:
+            if self.context.declaration is not None:
+                if self.context.declaration.kind == 'function':
+                    writeln("%s: In function '%s':"
+                            % (self.location.file.givenpath,
+                               self.context.declaration.name))
+        if self.cwe is not None:
             cwetext = ' [%s]' % self.get_cwe_str()
         else:
             cwetext = ''
@@ -346,22 +348,23 @@ class Issue(Result):
                    column=self.location.column,
                    kind='warning',
                    msg='%s%s' % (self.message.text, cwetext))
-        if self.notes:
+        if self.notes is not None:
             writeln(self.notes.text.rstrip())
-        if self.trace:
-            for state in self.trace.states:
-                notes = state.notes
-                diagnostic(filename=state.location.file.givenpath,
-                           line=state.location.line,
-                           column=state.location.column,
-                           kind='note',
-                           msg=notes.text if notes else '')
+        if self.context is not None:
+            if self.context.trace is not None:
+                for state in self.context.trace.states:
+                    notes = state.notes
+                    diagnostic(filename=state.location.file.givenpath,
+                               line=state.location.line,
+                               column=state.location.column,
+                               kind='note',
+                               msg=notes.text if notes else '')
 
     def __repr__(self):
-        return ('Issue(cwe=%r, testid=%r, location=%r, message=%r,'
-                ' notes=%r, trace=%r, severity=%r, customfields=%r)'
-                % (self.cwe, self.testid, self.location, self.message,
-                   self.notes, self.trace, self.severity, self.customfields))
+        return ('Issue(cwe=%r, testid=%r, location=%r, context=%r, message=%r,'
+                ' notes=%r, severity=%r, customfields=%r)'
+                % (self.cwe, self.testid, self.location, self.context, self.message,
+                   self.notes, self.severity, self.customfields))
 
     def __eq__(self, other):
         for slot in self.__slots__:
@@ -371,17 +374,17 @@ class Issue(Result):
 
     def __hash__(self):
         return (hash(self.cwe) ^ hash(self.testid)
-                ^ hash(self.location) ^ hash(self.message)
+                ^ hash(self.location) ^ hash(self.context) ^ hash(self.message)
                 ^ hash(self.notes) ^ hash(self.trace) ^ hash(self.severity))
 
     def accept(self, visitor):
-        visitor.visit_warning(self)
+        visitor.visit_issue(self)
         self.location.accept(visitor)
+        if self.context is not None:
+            self.context.accept(visitor)
         self.message.accept(visitor)
-        if self.notes:
+        if self.notes is not None:
             self.notes.accept(visitor)
-        if self.trace:
-            self.trace.accept(visitor)
 
     def get_cwe_str(self):
         if self.cwe is not None:
@@ -394,21 +397,25 @@ class Issue(Result):
 class Failure(Result):
     attrs = [Attribute('failureid', _string_type, nullable=True),
              Attribute('location', 'Location'),
+             Attribute('context', 'Context'),
              Attribute('message', 'Message'),
              Attribute('customfields', 'CustomFields', nullable=True)]
     __slots__ = make_slots(attrs)
 
-    def __init__(self, failureid, location, message, customfields):
-        if failureid is not None:
+    def __init__(self, failureid, location, context, message, customfields):
+        if failureid:
             assert isinstance(failureid, _string_type)
         if location is not None:
             assert isinstance(location, Location)
+        if context is not None:
+            assert isinstance(context, Context)
         if message is not None:
             assert isinstance(message, Message)
         if customfields is not None:
             assert isinstance(customfields, CustomFields)
         self.failureid = failureid
         self.location = location
+        self.context = context
         self.message = message
         self.customfields = customfields
 
@@ -420,6 +427,11 @@ class Failure(Result):
             location = Location.from_xml(location_node)
         else:
             location = None
+        context_node = node.find('context')
+        if context_node is not None:
+            context = Context.from_xml(context_node)
+        else:
+            context = None
         message_node = node.find('message')
         if message_node is not None:
             message = Message.from_xml(message_node)
@@ -430,16 +442,19 @@ class Failure(Result):
             customfields = CustomFields.from_xml(customfields_node)
         else:
             customfields = None
-        return Failure(failureid, location, message, customfields)
+        return Failure(failureid, location, context, message, customfields)
 
     def to_xml(self):
         node = ET.Element('failure')
 
-        if self.failureid is not None:
+        if self.failureid:
             node.set('failure-id', self.failureid)
 
         if self.location is not None:
             node.append(self.location.to_xml())
+
+        if self.context is not None:
+            node.append(self.context.to_xml())
 
         if self.message is not None:
             node.append(self.message.to_xml())
@@ -455,45 +470,52 @@ class Failure(Result):
         return jsonobj
 
     def __repr__(self):
-        return ('Failure(failureid=%r, location=%r, message=%r, customfields=%r)'
-                % (self.failureid, self.location, self.message, self.customfields))
+        return ('Failure(failureid=%r, location=%r, context=%r, message=%r, customfields=%r)'
+                % (self.failureid, self.location, self.context, self.message, self.customfields))
 
     def __eq__(self, other):
         if self.failureid == other.failureid:
             if self.location == other.location:
-                if self.message == other.message:
-                    if self.customfields == other.customfields:
-                        return True
+                if self.context == other.context:
+                    if self.message == other.message:
+                        if self.customfields == other.customfields:
+                            return True
 
     def __hash__(self):
-        return (hash(self.failureid) ^ hash(self.location)
+        return (hash(self.failureid) ^ hash(self.location) ^ hash(self.context)
                 ^ hash(self.message) ^ hash(self.customfields))
 
     def accept(self, visitor):
         visitor.visit_failure(self)
-        if self.location:
+        if self.location is not None:
             self.location.accept(visitor)
-        if self.message:
+        if self.context is not None:
+            self.context.accept(visitor)
+        if self.message is not None:
             self.message.accept(visitor)
 
 class Info(Result):
     attrs = [Attribute('infoid', _string_type, nullable=True),
              Attribute('location', 'Location', nullable=True),
+             Attribute('context', 'Context', nullable=True),
              Attribute('message', 'Message', nullable=True),
              Attribute('customfields', 'CustomFields', nullable=True)]
     __slots__ = make_slots(attrs)
 
-    def __init__(self, infoid, location, message, customfields):
-        if infoid is not None:
+    def __init__(self, infoid, location, context, message, customfields):
+        if infoid:
             assert isinstance(infoid, _string_type)
         if location is not None:
             assert isinstance(location, Location)
+        if context is not None:
+            assert isinstance(context, Context)
         if message is not None:
             assert isinstance(message, Message)
         if customfields is not None:
             assert isinstance(customfields, CustomFields)
         self.infoid = infoid
         self.location = location
+        self.context = context
         self.message = message
         self.customfields = customfields
 
@@ -505,6 +527,11 @@ class Info(Result):
             location = Location.from_xml(location_node)
         else:
             location = None
+        context_node = node.find('context')
+        if context_node is not None:
+            context = Context.from_xml(context_node)
+        else:
+            context = None
         message_node = node.find('message')
         if message_node is not None:
             message = Message.from_xml(message_node)
@@ -515,7 +542,7 @@ class Info(Result):
             customfields = CustomFields.from_xml(customfields_node)
         else:
             customfields = None
-        return Info(infoid, location, message, customfields)
+        return Info(infoid, location, context, message, customfields)
 
     def to_xml(self):
         node = ET.Element('info')
@@ -525,6 +552,9 @@ class Info(Result):
 
         if self.location is not None:
             node.append(self.location.to_xml())
+
+        if self.context is not None:
+            node.append(self.context.to_xml())
 
         if self.message is not None:
             node.append(self.message.to_xml())
@@ -540,24 +570,27 @@ class Info(Result):
         return jsonobj
 
     def __repr__(self):
-        return ('Info(infoid=%r, location=%r, message=%r, customfields=%r)'
-                % (self.infoid, self.location, self.message, self.customfields))
+        return ('Info(infoid=%r, location=%r, context=%r, message=%r, customfields=%r)'
+                % (self.infoid, self.location, self.context, self.message, self.customfields))
 
     def __eq__(self, other):
         if self.infoid == other.infoid:
             if self.location == other.location:
-                if self.message == other.message:
-                    if self.customfields == other.customfields:
-                        return True
+                if self.context == other.context:
+                    if self.message == other.message:
+                        if self.customfields == other.customfields:
+                            return True
 
     def __hash__(self):
-        return (hash(self.infoid) ^ hash(self.location)
+        return (hash(self.infoid) ^ hash(self.location) ^ hash(self.context)
                 ^ hash(self.message) ^ hash(self.customfields))
 
     def accept(self, visitor):
         visitor.visit_info(self)
         if self.location:
             self.location.accept(visitor)
+        if self.context:
+            self.context.accept(visitor)
         if self.message:
             self.message.accept(visitor)
 
@@ -1071,78 +1104,84 @@ class Trace(JsonMixin):
 
 class State(JsonMixin):
     attrs = [Attribute('location', 'Location'),
+             Attribute('context', 'Context', nullable=True),
              Attribute('notes', 'Notes', nullable=True)]
     __slots__ = make_slots(attrs)
 
-    def __init__(self, location, notes):
+    def __init__(self, location, context=None, notes=None):
         assert isinstance(location, Location)
+        if context is not None:
+            assert isinstance(context, Context)
         if notes is not None:
             assert isinstance(notes, Notes)
         self.location = location
+        self.context = context
         self.notes = notes
 
     @classmethod
     def from_xml(cls, node):
         location = Location.from_xml(node.find('location'))
+        context_node = node.find('context')
+        if context_node is not None:
+            context = Context.from_xml(context_node)
+        else:
+            context = None
         notes_node = node.find('notes')
         if notes_node is not None:
             notes = Notes.from_xml(notes_node)
         else:
             notes = None
-        return State(location, notes)
+        return State(location, context, notes)
 
     def to_xml(self):
         node = ET.Element('state')
         node.append(self.location.to_xml())
-        if self.notes:
+        if self.context is not None:
+            node.append(self.context.to_xml())
+        if self.notes is not None:
             node.append(self.notes.to_xml())
         return node
 
     def __repr__(self):
-        return 'State(location=%r, notes=%r)' % (self.location, self.notes)
+        return ('State(location=%r, context=%r, notes=%r)' % 
+            (self.location, self.context, self.notes))
 
     def __eq__(self, other):
         if self.location == other.location:
-            if self.notes == other.notes:
-                return True
+            if self.context == other.context:
+                if self.notes == other.notes:
+                    return True
 
     def __hash__(self):
-        return hash(self.location) ^ hash(self.notes)
+        return hash(self.location) ^ hash(self.context) ^ hash(self.notes)
 
     def accept(self, visitor):
         visitor.visit_state(self)
         self.location.accept(visitor)
+        if self.context:
+            self.context.accept(visitor)
         if self.notes:
             self.notes.accept(visitor)
 
 class Location(JsonMixin):
     attrs = [Attribute('file', 'File'),
-             Attribute('function', 'Function', nullable=True),
              Attribute('point', 'Point', nullable=True),
              Attribute('range_', 'Range', nullable=True)]
     __slots__ = make_slots(attrs)
 
-    def __init__(self, file, function, point=None, range_=None):
+    def __init__(self, file, point=None, range_=None):
         assert isinstance(file, File)
-        if function is not None:
-            assert isinstance(function, Function)
         if point is not None:
             assert isinstance(point, Point)
         if range_ is not None:
             assert isinstance(range_, Range)
         self.file = file
-        self.function = function
         self.point = point
         self.range_ = range_
 
     @classmethod
     def from_xml(cls, node):
         file = File.from_xml(node.find('file'))
-        function_node = node.find('function')
-        if function_node is not None:
-            function = Function.from_xml(function_node)
-        else:
-            function = None
         point_node = node.find('point')
         if point_node is not None:
             point = Point.from_xml(point_node)
@@ -1153,13 +1192,11 @@ class Location(JsonMixin):
             range_ = Range.from_xml(range_node)
         else:
             range_ = None
-        return Location(file, function, point, range_)
+        return Location(file, point, range_)
 
     def to_xml(self):
         node = ET.Element('location')
         node.append(self.file.to_xml())
-        if self.function is not None:
-            node.append(self.function.to_xml())
         if self.point is not None:
             node.append(self.point.to_xml())
         if self.range_ is not None:
@@ -1167,29 +1204,26 @@ class Location(JsonMixin):
         return node
 
     def __repr__(self):
-        return ('Location(file=%r, function=%r, point=%r, range_=%r)' %
-                (self.file, self.function, self.point, self.range_))
+        return ('Location(file=%r, point=%r, range_=%r)' %
+                (self.file, self.point, self.range_))
 
     def __eq__(self, other):
         if isinstance(other, Location):
             if self.file == other.file:
-                if self.function == other.function:
-                    if self.point == other.point:
-                        if self.range_ == other.range_:
-                            return True
+                if self.point == other.point:
+                    if self.range_ == other.range_:
+                        return True
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        return (hash(self.file) ^ hash(self.function)
-                ^ hash(self.point) ^ hash(self.range_))
+        return (hash(self.file) ^ hash(self.point) 
+            ^ hash(self.range_))
 
     def accept(self, visitor):
         visitor.visit_location(self)
         self.file.accept(visitor)
-        if self.function:
-            self.function.accept(visitor)
         if self.point:
             self.point.accept(visitor)
         if self.range_:
@@ -1299,35 +1333,94 @@ class Hash(JsonMixin):
     def __hash__(self):
         return hash(self.alg) ^ hash(self.hexdigest)
 
-class Function(JsonMixin):
-    attrs = [Attribute('name', _string_type)]
+class Context(JsonMixin):
+    attrs = [Attribute('declaration', 'Declaration', nullable=True),
+             Attribute('trace', 'Trace', nullable=True)]
     __slots__ = make_slots(attrs)
 
-    def __init__(self, name):
+    def __init__(self, declaration, trace=None):
+        if declaration is not None:
+            assert isinstance(declaration, Declaration)
+        if trace is not None:
+            assert isinstance(trace, Trace)
+        self.declaration = declaration
+        self.trace = trace
+
+    @classmethod
+    def from_xml(cls, node):
+        declaration_node = node.find('declaration')
+        if declaration_node is not None:
+            declaration = Declaration.from_xml(declaration_node)
+        else:
+            declaration = None
+        trace_node = node.find('trace')
+        if trace_node is not None:
+            trace = Trace.from_xml(trace_node)
+        else:
+            trace = None
+        result = Context(declaration, trace)
+        return result
+
+    def to_xml(self):
+        node = ET.Element('context')
+        if self.declaration is not None:
+            node.append(self.declaration.to_xml())
+        if self.trace is not None:
+            node.append(self.trace.to_xml())
+        return node
+
+    def __repr__(self):
+        return ('Context(declaration=%r, trace=%r)' % 
+            (self.declaration, self.trace))
+
+    def __eq__(self, other):
+        if self.declaration == other.declaration:
+            if self.trace == other.trace:
+                return True
+
+    def __hash__(self):
+        return hash(self.declaration) ^ hash(self.trace)
+
+    def accept(self, visitor):
+        visitor.visit_function(self)
+        self.declaration.accept(visitor)
+        self.trace.accept(visitor)
+
+class Declaration(JsonMixin):
+    attrs = [Attribute('name', _string_type),
+             Attribute('kind', _string_type, nullable=True)]
+    __slots__ = make_slots(attrs)
+
+    def __init__(self, name, kind):
+        assert isinstance(name, _string_type)
+        assert isinstance(kind, _string_type)
         self.name = name
+        self.kind = kind
 
     @classmethod
     def from_xml(cls, node):
         name = node.get('name')
-        result = Function(name)
+        kind = node.get('kind')
+        result = Declaration(name, kind)
         return result
 
     def to_xml(self):
-        node = ET.Element('function')
+        node = ET.Element('declaration')
         node.set('name', self.name)
+        if self.kind is not None:
+            node.set('kind', self.kind)
         return node
 
     def __repr__(self):
-        return 'Function(name=%r)' % self.name
+        return 'Declaration(name=%r, kind=%r)' % (self.name, self.kind)
 
     def __eq__(self, other):
-        return self.name == other.name
-
-    def __ne__(self, other):
-        return self.name != other.name
+        if self.name == other.name:
+            if self.kind == other.kind:
+                return True
 
     def __hash__(self):
-        return hash(self.name)
+        return hash(self.name) ^ hash(self.kind)
 
     def accept(self, visitor):
         visitor.visit_function(self)
@@ -1484,7 +1577,7 @@ class Visitor:
     def visit_analysis(self, analysis):
         pass
 
-    def visit_warning(self, warning):
+    def visit_issue(self, issue):
         pass
 
     def visit_failure(self, failure):
@@ -1514,13 +1607,16 @@ class Visitor:
     def visit_state(self, state):
         pass
 
+    def visit_context(self, context):
+        pass
+
     def visit_location(self, location):
         pass
 
     def visit_file(self, file_):
         pass
 
-    def visit_function(self, function):
+    def visit_declaration(self, declaration):
         pass
 
     def visit_point(self, point):

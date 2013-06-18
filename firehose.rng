@@ -52,25 +52,14 @@
         <optional>
           <element name="sut">
             <choice>
+              <!-- RPM Package  -->
               <element name="source-rpm">
                 <attribute name="name"/>
                 <attribute name="version"/>
                 <attribute name="release"/>
                 <attribute name="build-arch"/>
               </element>
-              <!-- Debian SUT entries -->
-              <element name="debian-source">
-                <!-- Report for a Debian source package -->
-                <attribute name="name"/>
-                <attribute name="version"/>
-                <optional>
-                  <!-- This entry is optional because Debian packages may be
-                       `native' (e.g. no local version, since local and
-                       upstream are the same). -->
-                  <attribute name="release"/>
-                </optional>
-                <!-- No build arch; source is arch indep. -->
-              </element>
+              <!-- Debian .deb package -->
               <element name="debian-binary">
                 <!-- Report for a Debian .deb package -->
                 <attribute name="name"/>
@@ -78,11 +67,23 @@
                 <optional>
                   <attribute name="release"/>
                 </optional>
-                <attribute name="build-arch"/>
-                <!-- Valid entries include `amd64', `kfreebsd-amd64', `armhf',
+                <!--  Valid entries include `amd64', `kfreebsd-amd64', `armhf',
                      `hurd-i386', among others for Debian. -->
+                <attribute name="build-arch"/>
               </element>
-              <!-- What other options should we have? -->
+              <!-- Debian source package -->
+              <element name="debian-source">
+                <attribute name="name"/>
+                <attribute name="version"/>
+                <optional>
+                  <!-- This entry is optional because Debian packages may be
+                       'native' (e.g. no local version, since local and
+                       upstream are the same). -->
+                  <attribute name="release"/>
+                </optional>
+                <!-- No build arch; source is arch independant -->
+              </element>
+              <!-- TODO: What other options should we have? -->
             </choice>
           </element>
         </optional>
@@ -162,25 +163,9 @@
       <!-- Where is the problem? -->
       <ref name="location-element"/>
 
+      <!-- On what grounds did that happen? -->
       <optional>
-        <!-- How can the problem occur? -->
-        <element name="trace">
-          <oneOrMore>
-            <element name="state">
-              <ref name="location-element"/>
-              <optional>
-                <element name="notes"><text/></element>
-              </optional>
-              <!-- optionally we can supply key-value pairs -->
-              <zeroOrMore>
-                <element name="annotation">
-                  <element name="key"><text/></element>
-                  <element name="value"><text/></element>
-                </element>
-              </zeroOrMore>
-              </element>
-          </oneOrMore>
-        </element>
+        <ref name="context-element"/>
       </optional>
 
       <!--
@@ -219,6 +204,7 @@
         -->
         <attribute name="failure-id"/>
       </optional>
+
       <optional>
         <!--
            Some analysis tools may be able to annotate a failure report by
@@ -232,6 +218,9 @@
            when debugging analysis failures.
         -->
         <ref name="location-element"/>
+      </optional>
+      <optional>
+        <ref name="context-element"/>
       </optional>
       <optional>
         <!-- summary of the failure -->
@@ -275,6 +264,9 @@
         <ref name="location-element"/>
       </optional>
       <optional>
+        <ref name="context-element"/>
+      </optional>
+      <optional>
         <element name="message">
           <text/>
         </element>
@@ -300,6 +292,32 @@
     <element name="location">
       <ref name="file-element"/>
 
+
+      <!-- We can refer to either a location, or a range of locations
+           within the file: -->
+      <choice>
+        <ref name="point-element"/>
+        <element name="range">
+          <!-- start of range: -->
+          <ref name="point-element"/>
+          <!-- end of range: -->
+          <ref name="point-element"/>
+        </element>
+      </choice>
+    </element>
+  </define>
+
+  <define name="declaration-element">
+    <element name="declaration">
+      <attribute name="name"/>          
+      <optional>
+        <attribute name="kind"/>
+      </optional>
+    </element>
+  </define> 
+
+  <define name="context-element">
+    <element name="context">
       <!--
            Ideally, every analyzer would tell us in which function each
            problem was discovered, given that function names are less
@@ -315,23 +333,41 @@
            (although arguably there *is* a relevant function there: the
            location of the code that uses that data)
       -->
+      <optional>
+        <ref name="declaration-element"/>
+      </optional>
 
       <optional>
-        <element name="function">
-          <attribute name="name"/>
+        <!-- How can the problem occur? -->
+        <element name="trace">
+          <oneOrMore>
+            <element name="state">
+              <optional>
+                <ref name="declaration-element"/>
+              </optional>
+              <ref name="location-element"/>
+              <optional>
+                <ref name="context-element"/>
+              </optional>
+              <optional>
+                <element name="notes"><text/></element>
+              </optional>
+              <!-- optionally we can supply key-value pairs -->
+              <zeroOrMore>
+                <element name="annotation">
+                  <element name="key"><text/></element>
+                  <element name="value"><text/></element>
+                </element>
+              </zeroOrMore>
+              </element>
+          </oneOrMore>
         </element>
       </optional>
-      <!-- We can refer to either a location, or a range of locations
-           within the file: -->
-      <choice>
-        <ref name="point-element"/>
-        <element name="range">
-          <!-- start of range: -->
-          <ref name="point-element"/>
-          <!-- end of range: -->
-          <ref name="point-element"/>
-        </element>
-      </choice>
+      <optional>
+        <!-- How can the problem occur? -->
+        <element name="backtrace"><text/></element>
+      </optional>
+
     </element>
   </define>
 
